@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# uv
+.venv/
+
+# Generated artifacts
+**/app.zip
+**/result.txt
+
+# macOS
+.DS_Store
