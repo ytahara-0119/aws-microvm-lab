@@ -5,12 +5,25 @@ from .auth import build_microvm_headers
 from .config import Settings
 
 
+def get_websocket_protocols(request: web.Request) -> tuple[str, ...]:
+    value = request.headers.get("Sec-WebSocket-Protocol", "")
+    if not value:
+        return ()
+    return tuple(
+        item.strip()
+        for item in value.split(",")
+        if item.strip()
+    )
+
+
 async def proxy_websocket(
     request: web.Request,
     settings: Settings,
     target_url: str,
 ) -> web.WebSocketResponse:
-    ws_browser = web.WebSocketResponse(protocols=("tty",))
+    protocols = get_websocket_protocols(request)
+
+    ws_browser = web.WebSocketResponse(protocols=protocols)
     await ws_browser.prepare(request)
 
     headers = build_microvm_headers(settings)
@@ -19,7 +32,7 @@ async def proxy_websocket(
         async with session.ws_connect(
             target_url,
             headers=headers,
-            protocols=("tty",),
+            protocols=protocols,
         ) as ws_microvm:
 
             async def browser_to_microvm() -> None:
