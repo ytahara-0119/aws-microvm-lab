@@ -200,7 +200,22 @@ Terminal       Firefox
 
 ---
 
+## Required Environment Variables
+
+Build and image creation require the following environment variables.
+
+```bash
+export REGION=ap-northeast-1
+export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export BUCKET_NAME="microvm-hello-${ACCOUNT_ID}-${REGION}"
+export BUILD_ROLE_ARN=$(aws iam get-role \
+  --role-name MicroVMBuildRole \
+  --query Role.Arn \
+  --output text)
+```
+
 # Development
+
 
 起動方法は全STEP共通です。
 
