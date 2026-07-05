@@ -37,10 +37,23 @@ RUN_RESULT=$(aws lambda-microvms run-microvm \
 MICROVM_ID=$(echo "${RUN_RESULT}" | jq -r '.microvmId')
 ENDPOINT=$(echo "${RUN_RESULT}" | jq -r '.endpoint')
 
+if [[ -n "${TERMINAL_PORT:-}" && -n "${VNC_PORT:-}" ]]; then
+  ALLOWED_PORTS_JSON=$(jq -nc \
+    --argjson vnc "${VNC_PORT}" \
+    --argjson terminal "${TERMINAL_PORT}" \
+    '[{"port":$vnc},{"port":$terminal}]')
+else
+  ALLOWED_PORTS_JSON=$(jq -nc \
+    --argjson port "${TARGET_PORT}" \
+    '[{"port":$port}]')
+fi
+
+echo "Allowed ports: ${ALLOWED_PORTS_JSON}"
+
 TOKEN=$(aws lambda-microvms create-microvm-auth-token \
   --microvm-identifier "${MICROVM_ID}" \
   --expiration-in-minutes 60 \
-  --allowed-ports "[{\"port\":${TARGET_PORT}}]" \
+  --allowed-ports "${ALLOWED_PORTS_JSON}" \
   --region "${REGION}" \
   --query 'authToken."X-aws-proxy-auth"' \
   --output text)
@@ -49,6 +62,8 @@ export MICROVM_ID
 export ENDPOINT
 export TOKEN
 export TARGET_PORT
+export VNC_PORT="${VNC_PORT:-6080}"
+export TERMINAL_PORT="${TERMINAL_PORT:-7681}"
 export LISTEN_PORT="${LOCAL_PORT}"
 
 echo

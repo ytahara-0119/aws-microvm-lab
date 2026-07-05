@@ -9,24 +9,21 @@ def get_websocket_protocols(request: web.Request) -> tuple[str, ...]:
     value = request.headers.get("Sec-WebSocket-Protocol", "")
     if not value:
         return ()
-    return tuple(
-        item.strip()
-        for item in value.split(",")
-        if item.strip()
-    )
+    return tuple(item.strip() for item in value.split(",") if item.strip())
 
 
 async def proxy_websocket(
     request: web.Request,
     settings: Settings,
     target_url: str,
+    target_port: str,
 ) -> web.WebSocketResponse:
     protocols = get_websocket_protocols(request)
 
     ws_browser = web.WebSocketResponse(protocols=protocols)
     await ws_browser.prepare(request)
 
-    headers = build_microvm_headers(settings)
+    headers = build_microvm_headers(settings, target_port)
 
     async with ClientSession() as session:
         async with session.ws_connect(
@@ -53,9 +50,6 @@ async def proxy_websocket(
                     elif msg.type in (WSMsgType.CLOSE, WSMsgType.ERROR):
                         await ws_browser.close()
 
-            await asyncio.gather(
-                browser_to_microvm(),
-                microvm_to_browser(),
-            )
+            await asyncio.gather(browser_to_microvm(), microvm_to_browser())
 
     return ws_browser

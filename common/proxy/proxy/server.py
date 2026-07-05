@@ -1,8 +1,23 @@
 from aiohttp import web, ClientSession
 
 from .auth import build_microvm_headers
-from .config import Settings, load_settings
+from .config import Settings, Route, load_settings
 from .websocket import proxy_websocket
+
+
+def resolve_route(settings: Settings, path: str) -> tuple[str, str]:
+    incoming_path = "/" + path if path else "/"
+
+    for route in settings.routes:
+        if incoming_path == route.prefix or incoming_path.startswith(route.prefix + "/"):
+            if route.strip_prefix:
+                stripped = incoming_path.removeprefix(route.prefix)
+                target_path = stripped or "/"
+            else:
+                target_path = incoming_path
+            return target_path.lstrip("/"), route.target_port
+
+    return path, settings.target_port
 
 
 def build_target_url(settings: Settings, path: str, query: str) -> str:
@@ -19,21 +34,19 @@ def is_websocket_request(request: web.Request) -> bool:
 async def handler(request: web.Request) -> web.StreamResponse:
     settings: Settings = request.app["settings"]
 
-    path = request.match_info.get("path", "")
-    target_url = build_target_url(
-        settings=settings,
-        path=path,
-        query=request.query_string,
-    )
+    raw_path = request.match_info.get("path", "")
+    target_path, target_port = resolve_route(settings, raw_path)
+    target_url = build_target_url(settings, target_path, request.query_string)
 
     if is_websocket_request(request):
         return await proxy_websocket(
             request=request,
             settings=settings,
             target_url=target_url,
+            target_port=target_port,
         )
 
-    headers = build_microvm_headers(settings)
+    headers = build_microvm_headers(settings, target_port)
 
     async with ClientSession() as session:
         async with session.request(
@@ -76,15 +89,14 @@ def main() -> None:
     settings = load_settings()
     app = create_app(settings)
 
-    print(f"Proxy: http://{settings.listen_host}:{settings.listen_port}")
-    print(f"Target: https://{settings.endpoint}")
-    print(f"Port:   {settings.target_port}")
+    print(f"Proxy:   http://{settings.listen_host}:{settings.listen_port}")
+    print(f"Target:  https://{settings.endpoint}")
+    print(f"Default: {settings.target_port}")
+    print("Routes:")
+    for route in settings.routes:
+        print(f"  {route.prefix} -> {route.target_port}")
 
-    web.run_app(
-        app,
-        host=settings.listen_host,
-        port=settings.listen_port,
-    )
+    web.run_app(app, host=settings.listen_host, port=settings.listen_port)
 
 
 if __name__ == "__main__":
