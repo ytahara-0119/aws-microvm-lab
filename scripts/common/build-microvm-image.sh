@@ -50,3 +50,11 @@ echo "Check image:"
 echo "aws lambda-microvms get-microvm-image \\"
 echo "  --image-identifier arn:aws:lambda:${REGION}:${ACCOUNT_ID}:microvm-image:${IMAGE_NAME} \\"
 echo "  --region ${REGION}"
+
+
+echo
+echo "If CREATE_FAILED, check build logs:"
+echo "aws logs tail \\"
+echo "  /aws/lambda-microvms/${IMAGE_NAME} \\"
+echo "  --since 30m \\"
+echo "  --region ${REGION}"
