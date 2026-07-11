@@ -27,10 +27,11 @@ cd "${STEP_PATH}"
 
 rm -f app.zip
 
-zip app.zip \
+zip -r app.zip \
   Dockerfile \
-  *.sh \
-  *.py
+  ./*.sh \
+  ./*.py \
+  ./desktop
 
 echo
 echo "Uploading to S3..."
