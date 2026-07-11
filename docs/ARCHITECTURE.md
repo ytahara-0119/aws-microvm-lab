@@ -81,9 +81,14 @@ aws-microvm-lab/
 ├── step1-hello/
 ├── step2-terminal/
 ├── step3-novnc/
-├── step4-desktop/
+├── step4-gnome/
 ├── step5-firefox/
-└── step6-playwright/
+├── step6-playwright/
+├── step7-desktop-automation/
+├── step8-code-server/
+├── step9-claude-code/
+├── step10-desktop-agent/
+└── step11-desktop-tools/
 ```
 
 ---
@@ -201,6 +206,7 @@ AWS Lambda MicroVM Endpoint
 | / | TARGET_PORT |
 | /terminal | 7681 |
 | /vnc.html | 6080 |
+| code-server（STEP8以降） | 8081 |
 
 ---
 
@@ -237,9 +243,9 @@ Firefox
 
 Playwright
 
-今後追加予定
+VS Code (code-server)
 
-VS Code
+今後追加予定
 
 Calculator
 
@@ -297,39 +303,35 @@ Playwright は Desktop 上の Firefox を操作する。
 
 ---
 
-# Desktop Automation (Planned)
+# Desktop Automation (Completed)
 
 STEP7
+
+xdotool / wmctrl / xclip は Amazon Linux 2023 標準リポジトリに存在しないため、実装は Desktop の状態観測に着地した。
 
 ```
 AI
 
 ↓
 
-Desktop Automation
+Desktop Observation
 
 ↓
 
-xdotool
+xwininfo / xrandr / xlsclients
 
-wmctrl
-
-xclip
-
-ImageMagick
-
-OCR
+ImageMagick (screenshot)
 
 ↓
 
-Desktop
+desktop-state.json
 ```
 
-ブラウザだけではなく Desktop 全体を操作する。
+マウス操作・OCRなどの実操作は STEP10 / STEP11 で継続対応中。
 
 ---
 
-# Cloud IDE (Planned)
+# Cloud IDE (Completed)
 
 STEP8
 
@@ -349,16 +351,16 @@ VS Code
 
 ---
 
-# AI Coding (Planned)
+# AI Coding (Completed)
 
 STEP9
 
 ```
-Claude Code
+Claude Code CLI
 
 ↓
 
-VS Code
+VS Code (code-server)
 
 ↓
 
@@ -373,45 +375,73 @@ Build
 Test
 ```
 
-AI が開発を支援する。
+npm経由で `@anthropic-ai/claude-code` を導入し、MicroVM上でAIコーディングを行う。
 
 ---
 
-# AI Desktop Agent (Planned)
+# AI Desktop Agent (In Progress)
 
 STEP10
 
 ```
-AI
+desktop_observer.py
 
 ↓
 
-Vision
+xwininfo / xrandr / xlsclients / import
 
 ↓
 
-Desktop
+desktop-state.json / desktop.png
+
+desktop_controller.py
 
 ↓
 
-VS Code
+move_mouse / click / type_text / keypress / focus_window
 
 ↓
 
-Terminal
-
-↓
-
-Firefox
+status: not_implemented (xdotool未導入)
 ```
 
-AI が Linux Desktop を直接操作する。
+観測（Observer）は実装済み。実操作（Controller）はインターフェースのみで、xdotoolの代替手段が未選定のため未実装。
+
+---
+
+# Desktop Tools (In Progress)
+
+STEP11
+
+STEP10の `desktop_observer.py` / `desktop_controller.py` を再利用可能なPythonパッケージに再構成。
+
+```
+desktop/
+  ├── observer.py    Desktop状態・スクリーンショット取得
+  ├── controller.py  アクションをキューに追加（実行はまだ未実装）
+  ├── planner.py     指示文からアクションプラン生成（骨組みのみ）
+  └── tools.py        DesktopTools（Claude Code / Agent向け統一API）
+```
+
+```
+Claude Code
+
+↓
+
+desktop.tools.DesktopTools
+
+↓
+
+observe() / plan() / move_mouse() / click() / type_text() / keypress()
+```
+
+`desktop.controller` はアクションを `desktop-actions.json` にキューイングするところまで実装済み。実際のマウス・キーボード操作の実行は未実装。
 
 ---
 
 # Persistent Workspace (Planned)
 
-STEP11
+STEP12
 
 ```
 GitHub
@@ -435,7 +465,7 @@ Workspace を再利用可能にする。
 
 # Multi Agent (Planned)
 
-STEP12
+STEP13
 
 ```
 Agent A
@@ -480,9 +510,11 @@ scripts/config/
 ```
 step2.env
 
-step5.env
-
 step6.env
+
+step9.env
+
+step11.env
 ```
 
 ---
@@ -593,15 +625,17 @@ Multi Agent
 - Desktop
 - Firefox
 - Playwright
+- Desktop Automation（状態観測のみ）
+- code-server
+- Claude Code
 
 開発中
 
-- Desktop Automation
+- AI Desktop Agent（観測は完了、実操作は未実装）
+- Desktop Tools（observer/controller/planner/toolsパッケージ化）
 
 予定
 
-- code-server
-- Claude Code
-- Desktop Agent
+- Desktop 実操作の実装（xdotool代替の選定）
 - Persistent Workspace
 - Multi Agent

@@ -207,37 +207,21 @@ Linux Desktop全体を自動操作する。
 
 ### Learn
 
-- xdotool
-- wmctrl
-- xclip
-- ImageMagick
-- OCR
+当初予定していた xdotool / wmctrl / xclip / OCR は Amazon Linux 2023 標準リポジトリに存在しないため、実装では Desktop の**状態観測**に着地した。
+
+- xwininfo（ウィンドウ一覧）
+- xrandr（解像度）
+- xlsclients（接続クライアント）
+- ImageMagick（スクリーンショット）
 
 ### Deliverables
 
-AIがDesktopを操作
-
-予定
-
-```
-Mouse Move
-
-Click
-
-Keyboard
-
-Window Control
-
-Clipboard
-
-Screenshot
-
-OCR
-```
+- ウィンドウ一覧・解像度・スクリーンショットを `desktop-state.json` に保存
+- Mouse Move / Click / Keyboard / Clipboard / OCR による実操作は STEP10 以降へ持ち越し
 
 Status
 
-🚧 In Progress
+✅ Completed（状態観測のみ。実操作はSTEP10/11で継続）
 
 ---
 
@@ -271,7 +255,7 @@ VS Code
 
 Status
 
-⏳ Planned
+✅ Completed
 
 ---
 
@@ -300,7 +284,7 @@ AI Coding Environment
 
 Status
 
-⏳ Planned
+✅ Completed
 
 ---
 
@@ -363,19 +347,54 @@ Test
 Commit
 ```
 
+### 現状
+
+- `desktop_observer.py`: ウィンドウ一覧・解像度・スクリーンショット取得は実装済み
+- `desktop_controller.py`: move_mouse / click / type_text / keypress / focus_window のインターフェースのみ実装。実操作は `status: "not_implemented"`（xdotool未導入のため）
+
 Status
 
-⏳ Planned
+🚧 In Progress（観測は完了、実操作は未実装）
 
 ---
 
 # Phase 7
 
+## Desktop Tools
+
+---
+
+## STEP11 Desktop Tools
+
+### Goal
+
+STEP10 の observer / controller を再利用可能な `desktop` パッケージにまとめ、Claude Code や将来のAgentから呼び出せる統一APIを提供する。
+
+### Learn
+
+- Pythonパッケージ設計（`desktop/__init__.py`, `observer.py`, `controller.py`, `planner.py`, `tools.py`）
+- アクションキューイングの設計
+
+### Deliverables
+
+- `desktop.observer`: Desktop状態・スクリーンショット取得
+- `desktop.controller`: アクションを `desktop-actions.json` にキューイング（`status: "queued"`。実行はまだ未実装）
+- `desktop.planner`: 指示文からアクションプランを生成する骨組み（実プランニングロジックは未実装）
+- `desktop.tools.DesktopTools`: 上記をまとめた統一API
+
+Status
+
+🚧 In Progress
+
+---
+
+# Phase 8
+
 ## Persistent Workspace
 
 ---
 
-## STEP11 Workspace
+## STEP12 Persistent Workspace
 
 ### Goal
 
@@ -397,13 +416,13 @@ Status
 
 ---
 
-# Phase 8
+# Phase 9
 
 ## Multi Agent
 
 ---
 
-## STEP12 Multi Agent
+## STEP13 Multi Agent
 
 ### Goal
 

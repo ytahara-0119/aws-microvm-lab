@@ -15,9 +15,12 @@ AWS Lambda MicroVM を利用して、ブラウザからアクセスできる Lin
 - 🖥 noVNC による GUI
 - 🖲 Playwright によるブラウザ自動操作
 - 📝 ttyd による Web Terminal
+- 🧩 code-server によるブラウザだけの VS Code 環境
+- 🤖 Claude Code を MicroVM 上で実行
+- 🔍 Desktop 状態観測（ウィンドウ一覧・解像度・スクリーンショット）
 - 🔀 共通起動スクリプト
 - 🌏 日本語ロケール・タイムゾーン対応
-- 🤖 将来的に Claude Code / Desktop Agent を実行予定
+- 🚧 Desktop の実操作（クリック・キー入力）は開発中（xdotool未導入のため未実装）
 
 ---
 
@@ -70,13 +73,40 @@ Playwright が Firefox を自動操作し、その様子をブラウザからリ
 
 ---
 
+## Cloud IDE + Claude Code
+
+```
+Browser
+    │
+    ▼
+code-server (VS Code)
+    │
+    ▼
+Claude Code CLI
+```
+
+MicroVM上の code-server と Claude Code CLI を使い、ブラウザだけでAIコーディングができます。
+
+---
+
+## Desktop Tools（開発中）
+
+```
+desktop.observer   → Desktop状態・スクリーンショット取得
+desktop.controller → アクションのキューイング（実行はまだ未実装）
+desktop.planner    → 指示文からアクションプラン生成（骨組みのみ）
+desktop.tools      → Claude Code / Agentから使う統一API
+```
+
+---
+
 # Project Structure
 
 ```
 aws-microvm-lab/
 
 ├── common/
-│   └── proxy/                 # 共通Proxy
+│   └── proxy/                    # 共通Proxy
 │
 ├── docs/
 │   ├── ROADMAP.md
@@ -84,7 +114,7 @@ aws-microvm-lab/
 │   └── TROUBLESHOOTING.md
 │
 ├── scripts/
-│   ├── run.sh                 # 共通起動
+│   ├── run.sh                    # 共通起動
 │   ├── common/
 │   │   └── run-microvm.sh
 │   └── config/
@@ -92,9 +122,14 @@ aws-microvm-lab/
 ├── step1-hello/
 ├── step2-terminal/
 ├── step3-novnc/
-├── step4-desktop/
+├── step4-gnome/
 ├── step5-firefox/
-└── step6-playwright/
+├── step6-playwright/
+├── step7-desktop-automation/     # Desktop状態観測
+├── step8-code-server/            # ブラウザVS Code
+├── step9-claude-code/            # Claude Code CLI
+├── step10-desktop-agent/         # Desktop観測 + 操作インターフェース(未実装)
+└── step11-desktop-tools/         # desktop パッケージ化（開発中）
 ```
 ---
 
@@ -108,12 +143,13 @@ aws-microvm-lab/
 | STEP4 | Desktop Environment Survey | ✅ |
 | STEP5 | Firefox Desktop | ✅ |
 | STEP6 | Playwright Browser Automation | ✅ |
-| STEP7 | Desktop Automation | 🚧 |
-| STEP8 | code-server | ⏳ |
-| STEP9 | Claude Code | ⏳ |
-| STEP10 | AI Desktop Agent | ⏳ |
-| STEP11 | Persistent Workspace | ⏳ |
-| STEP12 | Multi Agent | ⏳ |
+| STEP7 | Desktop Automation（状態観測） | ✅ |
+| STEP8 | code-server | ✅ |
+| STEP9 | Claude Code | ✅ |
+| STEP10 | AI Desktop Agent（観測のみ） | 🚧 |
+| STEP11 | Desktop Tools（パッケージ化） | 🚧 |
+| STEP12 | Persistent Workspace | ⏳ |
+| STEP13 | Multi Agent | ⏳ |
 
 詳細は **docs/ROADMAP.md** を参照してください。
 
@@ -131,20 +167,6 @@ aws-microvm-lab/
 
 ```
 http://localhost:8080/
-```
-
----
-
-## STEP5 Firefox
-
-```bash
-./scripts/run.sh step5
-```
-
-ブラウザ
-
-```
-http://localhost:8080/vnc.html
 ```
 
 ---
@@ -169,6 +191,39 @@ http://localhost:8080/terminal/
 
 ---
 
+## STEP9 Claude Code
+
+```bash
+./scripts/run.sh step9
+```
+
+VS Code（code-server）
+
+```
+http://localhost:8080/  (port 8081)
+```
+
+Terminal / GUI は STEP6 と同様に利用可能です。
+
+---
+
+## STEP11 Desktop Tools
+
+```bash
+./scripts/run.sh step11
+```
+
+Desktopの状態取得・アクションキュー確認は MicroVM 内で以下を実行します。
+
+```bash
+cd /root/workspace
+python3 -m desktop.observer
+python3 -m desktop.controller
+python3 -m desktop.tools
+```
+
+---
+
 # Architecture
 
 ```
@@ -177,23 +232,25 @@ Browser
           ▼
      Local Proxy
           │
- ┌────────┴────────┐
- │                 │
- ▼                 ▼
-ttyd            noVNC
- │                 │
- └────────┬────────┘
-          ▼
-      AWS Lambda
-       MicroVM
-          │
- ┌────────┴────────┐
- │                 │
- ▼                 ▼
-Terminal       Firefox
-                   │
-                   ▼
-              Playwright
+ ┌────────┼────────┬───────────────┐
+ │        │        │               │
+ ▼        ▼        ▼               ▼
+ttyd    noVNC  code-server      (future)
+ │        │        │
+ └────────┴───┬────┘
+              ▼
+        AWS Lambda
+         MicroVM
+              │
+ ┌────────────┼──────────────┬──────────────┐
+ │            │              │              │
+ ▼            ▼              ▼              ▼
+Terminal   Firefox      Playwright     Claude Code
+                                            │
+                                            ▼
+                                     Desktop Tools
+                                (observer / controller /
+                                  planner / tools)
 ```
 
 詳細は **docs/ARCHITECTURE.md** を参照してください。
@@ -259,6 +316,7 @@ docs/TROUBLESHOOTING.md
 
 - Browser Automation
 - Desktop Automation
+- Cloud IDE / AI Coding
 - AI Development Workspace
 - AI Desktop Agent
 
@@ -270,13 +328,12 @@ docs/TROUBLESHOOTING.md
 
 今後追加予定
 
-- Desktop Automation
-- code-server
-- Claude Code
+- Desktop 実操作（xdotool代替の選定・実装）
+- Desktop Tools の Planner 高度化
 - Claude Desktop
-- AI Agent
+- AI Agent連携強化
 - GitHub連携
-- S3/EFS Workspace
+- S3/EFS Workspace（Persistent Workspace）
 - Multi Agent
 - Snapshot / Resume
 
