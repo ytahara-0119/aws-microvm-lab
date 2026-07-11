@@ -28,23 +28,35 @@ cd "${STEP_PATH}"
 rm -f app.zip
 
 zip -r app.zip \
-  Dockerfile \
-  ./*.sh \
-  ./*.py \
-  ./desktop
+    . \
+    -x "app.zip" \
+    -x "*/__pycache__/*" \
+    -x "*.pyc" \
+    -x "*.DS_Store"
+
+echo
+echo "ZIP contents:"
+unzip -l app.zip
 
 echo
 echo "Uploading to S3..."
-aws s3 cp "${ZIP_PATH}" "s3://${BUCKET_NAME}/${S3_KEY}"
+aws s3 cp \
+    "${ZIP_PATH}" \
+    "s3://${BUCKET_NAME}/${S3_KEY}"
 
 echo
 echo "Creating MicroVM image..."
 aws lambda-microvms create-microvm-image \
-  --name "${IMAGE_NAME}" \
-  --code-artifact uri="s3://${BUCKET_NAME}/${S3_KEY}" \
-  --base-image-arn "arn:aws:lambda:${REGION}:aws:microvm-image:al2023-1" \
-  --build-role-arn "${BUILD_ROLE_ARN}" \
-  --region "${REGION}"
+    --name "${IMAGE_NAME}" \
+    --code-artifact uri="s3://${BUCKET_NAME}/${S3_KEY}" \
+    --base-image-arn "arn:aws:lambda:${REGION}:aws:microvm-image:al2023-1" \
+    --build-role-arn "${BUILD_ROLE_ARN}" \
+    --region "${REGION}"
+
+echo
+echo "========================================"
+echo "Next Commands"
+echo "========================================"
 
 echo
 echo "Check image:"
@@ -52,10 +64,13 @@ echo "aws lambda-microvms get-microvm-image \\"
 echo "  --image-identifier arn:aws:lambda:${REGION}:${ACCOUNT_ID}:microvm-image:${IMAGE_NAME} \\"
 echo "  --region ${REGION}"
 
-
 echo
 echo "If CREATE_FAILED, check build logs:"
 echo "aws logs tail \\"
 echo "  /aws/lambda-microvms/${IMAGE_NAME} \\"
 echo "  --since 30m \\"
 echo "  --region ${REGION}"
+
+echo
+echo "If build succeeded:"
+echo "./scripts/run.sh ${STEP}"

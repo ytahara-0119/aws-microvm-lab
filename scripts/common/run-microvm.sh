@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REGION="${REGION:-ap-northeast-1}"
-IMAGE_VERSION="${IMAGE_VERSION:-1.0}"
+MICROVM_IMAGE_VERSION="${MICROVM_IMAGE_VERSION:-1.0}"
 LOCAL_PORT="${LOCAL_PORT:-8080}"
 
 : "${IMAGE_NAME:?IMAGE_NAME is required}"
@@ -29,7 +29,7 @@ echo
 
 RUN_RESULT=$(aws lambda-microvms run-microvm \
   --image-identifier "arn:aws:lambda:${REGION}:${ACCOUNT_ID}:microvm-image:${IMAGE_NAME}" \
-  --image-version "${IMAGE_VERSION}" \
+  --image-version "${MICROVM_IMAGE_VERSION}" \
   --execution-role-arn "${EXEC_ROLE_ARN}" \
   --idle-policy maxIdleDurationSeconds=900,suspendedDurationSeconds=1800,autoResumeEnabled=true \
   --region "${REGION}")
