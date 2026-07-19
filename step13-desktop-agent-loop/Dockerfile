@@ -98,6 +98,8 @@ COPY start-desktop-executor.sh \
 COPY desktop \
   /root/workspace/desktop
 
+COPY prompts /root/workspace/prompts
+
 RUN chmod +x /usr/local/bin/start-desktop-executor.sh
 
 EXPOSE 6080

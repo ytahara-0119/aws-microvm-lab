@@ -16,6 +16,8 @@ from .planner import DesktopPlanner
 
 from .tools import DesktopTools
 
+from .agent import DesktopAgent
+
 
 __all__ = [
     "DesktopTools",
