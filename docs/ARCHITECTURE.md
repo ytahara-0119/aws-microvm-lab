@@ -88,7 +88,9 @@ aws-microvm-lab/
 ├── step8-code-server/
 ├── step9-claude-code/
 ├── step10-desktop-agent/
-└── step11-desktop-tools/
+├── step11-desktop-tools/
+├── step12-desktop-executor/
+└── step13-desktop-agent-loop/
 ```
 
 ---
@@ -327,7 +329,7 @@ ImageMagick (screenshot)
 desktop-state.json
 ```
 
-マウス操作・OCRなどの実操作は STEP10 / STEP11 で継続対応中。
+マウス操作・OCRなどの実操作は STEP12 で `python-xlib` により実現。
 
 ---
 
@@ -379,7 +381,7 @@ npm経由で `@anthropic-ai/claude-code` を導入し、MicroVM上でAIコーデ
 
 ---
 
-# AI Desktop Agent (In Progress)
+# AI Desktop Agent (Completed)
 
 STEP10
 
@@ -405,11 +407,11 @@ move_mouse / click / type_text / keypress / focus_window
 status: not_implemented (xdotool未導入)
 ```
 
-観測（Observer）は実装済み。実操作（Controller）はインターフェースのみで、xdotoolの代替手段が未選定のため未実装。
+観測（Observer）は実装済み。実操作（Controller）はこの時点ではインターフェースのみ。実行部分はSTEP12で実装。
 
 ---
 
-# Desktop Tools (In Progress)
+# Desktop Tools (Completed)
 
 STEP11
 
@@ -418,8 +420,8 @@ STEP10の `desktop_observer.py` / `desktop_controller.py` を再利用可能なP
 ```
 desktop/
   ├── observer.py    Desktop状態・スクリーンショット取得
-  ├── controller.py  アクションをキューに追加（実行はまだ未実装）
-  ├── planner.py     指示文からアクションプラン生成（骨組みのみ）
+  ├── controller.py  アクションをキューに追加
+  ├── planner.py     指示文からアクションプラン生成（ルールベースの簡易版）
   └── tools.py        DesktopTools（Claude Code / Agent向け統一API）
 ```
 
@@ -435,13 +437,90 @@ desktop.tools.DesktopTools
 observe() / plan() / move_mouse() / click() / type_text() / keypress()
 ```
 
-`desktop.controller` はアクションを `desktop-actions.json` にキューイングするところまで実装済み。実際のマウス・キーボード操作の実行は未実装。
+`desktop.controller` はアクションを `desktop-actions.json` にキューイングするところまで実装。実際のマウス・キーボード操作の実行はSTEP12で実装。
+
+---
+
+# Desktop Executor (Completed)
+
+STEP12
+
+xdotoolがAmazon Linux 2023の標準リポジトリに存在しない問題を、`python-xlib` によるX11 XTest拡張の直接呼び出しで解決。
+
+```
+desktop-actions.json (アクションキュー)
+
+↓
+
+desktop.executor.DesktopExecutor
+
+↓
+
+python-xlib (Xlib.ext.xtest.fake_input)
+
+↓
+
+move_mouse / click / double_click / scroll /
+keypress / key_combination / type_text
+
+↓
+
+desktop-execution.json (実行結果)
+```
+
+これによりSTEP10/11で「未実装」だったDesktop操作が実際に動作するようになった。
+
+---
+
+# Desktop Agent Loop (Completed)
+
+STEP13
+
+プロジェクトの最終目標「AIがLinux Desktopを操作する」を、人間承認を挟んだ閉ループとして実現。
+
+```
+observe (desktop.observer)
+
+↓
+
+desktop-state.json
+
+↓
+
+claude -p  (desktop.claude_planner.ClaudePlanner)
+  prompts/agent-prompt.md + desktop-state.json + 指示
+
+↓
+
+アクションプラン (JSON)
+
+↓
+
+desktop.policy で検証
+  許可アクションのみ / 危険操作をブロック
+
+↓
+
+人間が承認 (approve)
+
+↓
+
+desktop.executor で実行 (execute)
+
+↓
+
+再度 observe → desktop-agent-result.json
+```
+
+CLI: `python3 -m desktop.agent {observe|plan|show-plan|approve|execute|status|show-result|clear}`
+
+現状は承認必須の半自動フロー。完全自律実行（承認なし）は未実装。
 
 ---
 
 # Persistent Workspace (Planned)
 
-STEP12
+STEP14
 
 ```
 GitHub
@@ -465,7 +544,7 @@ Workspace を再利用可能にする。
 
 # Multi Agent (Planned)
 
-STEP13
+STEP15
 
 ```
 Agent A
@@ -514,7 +593,9 @@ step6.env
 
 step9.env
 
-step11.env
+step12.env
+
+step13.env
 ```
 
 ---
@@ -602,7 +683,7 @@ Claude Code
 
 ↓
 
-Desktop Agent
+Desktop Agent Loop
 
 ↓
 
@@ -625,17 +706,21 @@ Multi Agent
 - Desktop
 - Firefox
 - Playwright
-- Desktop Automation（状態観測のみ）
+- Desktop Automation（状態観測）
 - code-server
 - Claude Code
+- AI Desktop Agent（観測 + 操作インターフェース定義）
+- Desktop Tools（observer/controller/planner/toolsパッケージ化）
+- Desktop Executor（python-xlibによる実操作）
+- Desktop Agent Loop（Observe→Plan→Approve→Execute）
 
 開発中
 
-- AI Desktop Agent（観測は完了、実操作は未実装）
-- Desktop Tools（observer/controller/planner/toolsパッケージ化）
+- （なし。次はSTEP14 Persistent Workspaceに着手予定）
 
 予定
 
-- Desktop 実操作の実装（xdotool代替の選定）
+- 承認なしの自律実行モード
+- 日本語等マルチバイト文字入力対応
 - Persistent Workspace
 - Multi Agent

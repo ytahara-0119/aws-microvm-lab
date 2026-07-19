@@ -18,9 +18,10 @@ AWS Lambda MicroVM を利用して、ブラウザからアクセスできる Lin
 - 🧩 code-server によるブラウザだけの VS Code 環境
 - 🤖 Claude Code を MicroVM 上で実行
 - 🔍 Desktop 状態観測（ウィンドウ一覧・解像度・スクリーンショット）
+- 🖱 python-xlib(XTest) による実際のマウス・キーボード操作
+- 🧠 Claude Code が Desktop状態から操作プランを生成し、人間承認を経て実行するAgentループ
 - 🔀 共通起動スクリプト
 - 🌏 日本語ロケール・タイムゾーン対応
-- 🚧 Desktop の実操作（クリック・キー入力）は開発中（xdotool未導入のため未実装）
 
 ---
 
@@ -89,14 +90,36 @@ MicroVM上の code-server と Claude Code CLI を使い、ブラウザだけでA
 
 ---
 
-## Desktop Tools（開発中）
+## Desktop Tools
 
 ```
 desktop.observer   → Desktop状態・スクリーンショット取得
-desktop.controller → アクションのキューイング（実行はまだ未実装）
-desktop.planner    → 指示文からアクションプラン生成（骨組みのみ）
+desktop.controller → アクションのキューイング
+desktop.executor   → python-xlib(XTest)で実際にマウス・キーボードを操作
 desktop.tools      → Claude Code / Agentから使う統一API
 ```
+
+---
+
+## Desktop Agent Loop
+
+```
+observe
+  │
+  ▼
+Claude Code がプラン生成 (claude -p)
+  │
+  ▼
+policy検証（許可アクションのみ・危険操作をブロック）
+  │
+  ▼
+人間が承認 (approve)
+  │
+  ▼
+実行 (execute) → 再度observe → 結果保存
+```
+
+`python3 -m desktop.agent plan "<指示>"` → `approve` → `execute` という流れで、AIが提案したDesktop操作を人間が確認してから実行できます。
 
 ---
 
@@ -128,8 +151,10 @@ aws-microvm-lab/
 ├── step7-desktop-automation/     # Desktop状態観測
 ├── step8-code-server/            # ブラウザVS Code
 ├── step9-claude-code/            # Claude Code CLI
-├── step10-desktop-agent/         # Desktop観測 + 操作インターフェース(未実装)
-└── step11-desktop-tools/         # desktop パッケージ化（開発中）
+├── step10-desktop-agent/         # Desktop観測 + 操作インターフェース定義
+├── step11-desktop-tools/         # desktop パッケージ化
+├── step12-desktop-executor/      # python-xlibによる実操作
+└── step13-desktop-agent-loop/    # Observe→Plan→Approve→Execute ループ
 ```
 ---
 
@@ -146,10 +171,12 @@ aws-microvm-lab/
 | STEP7 | Desktop Automation（状態観測） | ✅ |
 | STEP8 | code-server | ✅ |
 | STEP9 | Claude Code | ✅ |
-| STEP10 | AI Desktop Agent（観測のみ） | 🚧 |
-| STEP11 | Desktop Tools（パッケージ化） | 🚧 |
-| STEP12 | Persistent Workspace | ⏳ |
-| STEP13 | Multi Agent | ⏳ |
+| STEP10 | AI Desktop Agent（観測 + 操作インターフェース定義） | ✅ |
+| STEP11 | Desktop Tools（パッケージ化） | ✅ |
+| STEP12 | Desktop Executor（python-xlibで実操作） | ✅ |
+| STEP13 | Desktop Agent Loop（Observe→Plan→Approve→Execute） | ✅ |
+| STEP14 | Persistent Workspace | ⏳ |
+| STEP15 | Multi Agent | ⏳ |
 
 詳細は **docs/ROADMAP.md** を参照してください。
 
@@ -207,19 +234,32 @@ Terminal / GUI は STEP6 と同様に利用可能です。
 
 ---
 
-## STEP11 Desktop Tools
+## STEP13 Desktop Agent Loop
 
 ```bash
-./scripts/run.sh step11
+./scripts/run.sh step13
 ```
 
-Desktopの状態取得・アクションキュー確認は MicroVM 内で以下を実行します。
+MicroVM 内で以下を実行すると、Claude Codeが提案したDesktop操作を確認・承認・実行できます。
 
 ```bash
 cd /root/workspace
-python3 -m desktop.observer
-python3 -m desktop.controller
-python3 -m desktop.tools
+
+# 現在のDesktopを観測
+python3 -m desktop.agent observe
+
+# Claude Codeにプランを作らせる
+python3 -m desktop.agent plan "Firefoxで検索ボックスをクリックする"
+
+# 内容を確認
+python3 -m desktop.agent show-plan
+
+# 承認して実行
+python3 -m desktop.agent approve
+python3 -m desktop.agent execute
+
+# 結果確認
+python3 -m desktop.agent show-result
 ```
 
 ---
@@ -248,9 +288,13 @@ ttyd    noVNC  code-server      (future)
 Terminal   Firefox      Playwright     Claude Code
                                             │
                                             ▼
-                                     Desktop Tools
-                                (observer / controller /
-                                  planner / tools)
+                                    Desktop Agent Loop
+                               observe → plan(Claude) →
+                               policy → approve → execute
+                                            │
+                                            ▼
+                                     Desktop Executor
+                                  (python-xlib + XTest)
 ```
 
 詳細は **docs/ARCHITECTURE.md** を参照してください。
@@ -328,10 +372,10 @@ docs/TROUBLESHOOTING.md
 
 今後追加予定
 
-- Desktop 実操作（xdotool代替の選定・実装）
-- Desktop Tools の Planner 高度化
+- 承認なしの自律実行モード
+- 日本語等マルチバイト文字入力への対応
+- ポリシー（安全ルール）の拡充
 - Claude Desktop
-- AI Agent連携強化
 - GitHub連携
 - S3/EFS Workspace（Persistent Workspace）
 - Multi Agent
