@@ -1,12 +1,21 @@
 import json
 import os
 import time
+import urllib.parse
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from Xlib import X, XK
 from Xlib.display import Display
 from Xlib.ext import xtest
+
+
+# browser_search で使う検索エンジンのURLテンプレート
+SEARCH_ENGINES = {
+    "duckduckgo": "https://duckduckgo.com/?q={query}",
+    "google": "https://www.google.com/search?q={query}",
+}
+DEFAULT_SEARCH_ENGINE = "duckduckgo"
 
 
 ARTIFACT_DIR = Path(
@@ -21,22 +30,27 @@ DEFAULT_KEY_DELAY = 0.03
 
 
 # Shift入力が必要な文字
+# US配列で「Shiftを押した状態のキー」→「Shiftを押さない状態のキー」の対応。
+# 例: "!" (Shift+1) の素の文字は "1"。
+# 注意: "=" はUS配列では無シフトの文字なのでここに含めない
+# (誤って "-" に対応付けると、"=" の入力が Shift+"-" = "_" になってしまう)。
 SHIFTED_CHARACTERS = {
     "!": "1",
     '"': "'",
     "#": "3",
     "$": "4",
     "%": "5",
+    "^": "6",
     "&": "7",
+    "*": "8",
     "(": "9",
     ")": "0",
-    "=": "-",
+    "@": "2",
     "~": "`",
     "|": "\\",
     "{": "[",
     "}": "]",
     "+": "=",
-    "*": "8",
     "_": "-",
     ":": ";",
     "<": ",",
@@ -304,6 +318,46 @@ class DesktopExecutor:
 
         time.sleep(self.action_delay)
 
+    def browser_search(
+        self,
+        query: str,
+        engine: str = DEFAULT_SEARCH_ENGINE,
+    ) -> None:
+        """Focus the browser address bar and navigate to a search results page.
+
+        Uses the address bar (Ctrl+L) instead of clicking a search box,
+        so it does not depend on knowing the box's on-screen coordinates.
+        """
+        template = SEARCH_ENGINES.get(
+            engine,
+            SEARCH_ENGINES[DEFAULT_SEARCH_ENGINE],
+        )
+
+        url = template.format(
+            query=urllib.parse.quote_plus(query)
+        )
+
+        self.key_combination(["ctrl", "l"])
+        time.sleep(0.3)
+
+        self.type_text(url)
+        self.keypress("Enter")
+
+        time.sleep(self.action_delay)
+
+    def vision_read(self, instruction: str) -> Dict[str, Any]:
+        """Take a fresh screenshot and ask Claude to read what is on screen."""
+        from .observer import take_screenshot
+        from .vision import VisionReader
+
+        screenshot_path = Path(take_screenshot())
+
+        reader = VisionReader()
+        return reader.read(
+            instruction=instruction,
+            screenshot_path=screenshot_path,
+        )
+
     def execute_action(
         self,
         action: Dict[str, Any],
@@ -359,6 +413,19 @@ class DesktopExecutor:
             elif action_type == "wait":
                 seconds = float(action.get("seconds", 1))
                 time.sleep(seconds)
+
+            elif action_type == "browser_search":
+                self.browser_search(
+                    str(action["query"]),
+                    engine=str(
+                        action.get("engine", DEFAULT_SEARCH_ENGINE)
+                    ),
+                )
+
+            elif action_type == "vision_read":
+                result["vision_result"] = self.vision_read(
+                    str(action.get("instruction", ""))
+                )
 
             elif action_type in ("observe", "note"):
                 # Executorでは実行しない計画用アクション

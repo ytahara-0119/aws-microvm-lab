@@ -456,11 +456,99 @@ Status
 
 # Phase 10
 
+## Desktop Orchestrator
+
+---
+
+## STEP14 Desktop Orchestrator
+
+### Goal
+
+STEP13の`desktop.agent` CLIをラップし、より簡潔な操作フローを提供する。
+
+### Learn
+
+- サブプロセス経由でCLIコマンドを組み合わせるオーケストレーション設計
+
+### Deliverables
+
+- `desktop.orchestrator.DesktopOrchestrator`: `request`（observe→planを一括実行）/ `approve` / `execute` / `status`
+- CLI (`python3 -m desktop.orchestrator`)
+
+Status
+
+✅ Completed
+
+---
+
+# Phase 11
+
+## Browser Search Agent
+
+---
+
+## STEP15 Browser Search Agent
+
+### Goal
+
+「自然言語の指示でWeb検索を行い、結果をVisionで読んで返す」という具体的なユースケースを通して、Desktop Agent Loopの実用性を検証する。
+
+```
+自然言語の指示
+    ↓
+Claude Planner
+    ↓
+Human Approval
+    ↓
+browser_search（Firefoxをキーボード・マウスで操作）
+    ↓
+検索結果をスクリーンショット
+    ↓
+vision_read（Claude Visionが画像を読む）
+    ↓
+最初の検索結果タイトルをJSONで返す
+```
+
+### Learn
+
+- 座標に依存しないブラウザ操作（アドレスバー経由のURL直接入力）
+- Claude Codeの画像読み取り（Vision）をsubprocess経由で呼び出す設計
+- 複合アクション（`browser_search`）と非入力系アクション（`vision_read`）をどちらも同じExecutorの実行ループに載せる設計
+
+### Deliverables
+
+- `desktop.executor.DesktopExecutor.browser_search(query, engine)`: Ctrl+Lでアドレスバーへフォーカス→検索URL入力→Enter（既定エンジンはDuckDuckGo）
+- `desktop.vision.VisionReader`: `claude -p` でスクリーンショットを読み取らせ、`status` / `first_result_title` / `confidence` / `reason` のJSONを返す
+- `vision_read`アクション: 実行時に画面を撮り直してから読むため、プラン中どこに置いても最新の画面を読める
+- `desktop.policy`に`browser_search` / `vision_read`を追加（空文字・長すぎる入力・危険な文字列を拒否）
+- `prompts/agent-prompt.md` / `prompts/vision-prompt.md`の追記
+
+### 実機確認
+
+```bash
+python3 -m desktop.orchestrator request \
+  'Search the web for "AWS Lambda MicroVM", wait until the page loads, read the title of the first search result, and return it as JSON.'
+```
+
+DuckDuckGoで検索し、`first_result_title: "AWS Lambda MicroVMs"`を正しく返すところまで確認済み。
+
+### 副産物: SHIFTED_CHARACTERS バグ修正
+
+実装・検証の過程で`desktop/executor.py`の`SHIFTED_CHARACTERS`テーブルに誤りを発見（`"="`を誤って`Shift+"-"`＝`"_"`に対応付けていたため、URLに含まれる`=`が`_`に化けていた）。STEP12〜15すべてのexecutor.pyに修正を反映。
+
+Status
+
+✅ Completed
+
+---
+
+# Phase 12
+
 ## Persistent Workspace
 
 ---
 
-## STEP14 Persistent Workspace
+## STEP16 Persistent Workspace
 
 ### Goal
 
@@ -482,13 +570,13 @@ Status
 
 ---
 
-# Phase 11
+# Phase 13
 
 ## Multi Agent
 
 ---
 
-## STEP15 Multi Agent
+## STEP17 Multi Agent
 
 ### Goal
 

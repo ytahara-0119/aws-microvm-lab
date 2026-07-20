@@ -90,7 +90,9 @@ aws-microvm-lab/
 ├── step10-desktop-agent/
 ├── step11-desktop-tools/
 ├── step12-desktop-executor/
-└── step13-desktop-agent-loop/
+├── step13-desktop-agent-loop/
+├── step14-desktop-orchestrator/
+└── step15-browser-search-agent/
 ```
 
 ---
@@ -518,9 +520,68 @@ CLI: `python3 -m desktop.agent {observe|plan|show-plan|approve|execute|status|sh
 
 ---
 
-# Persistent Workspace (Planned)
+# Desktop Orchestrator (Completed)
 
 STEP14
+
+STEP13の`desktop.agent` CLIをサブプロセス経由でラップし、より簡潔な操作フローを提供。
+
+```
+desktop.orchestrator.DesktopOrchestrator
+
+↓
+
+request（observe → plan を一括実行）
+approve
+execute
+status
+
+↓
+
+（内部でdesktop.agent CLIをサブプロセス呼び出し）
+```
+
+CLI: `python3 -m desktop.orchestrator {request|approve|execute|status}`
+
+---
+
+# Browser Search Agent (Completed)
+
+STEP15
+
+「自然言語の指示でWeb検索し、結果をVisionで読んで返す」という具体的なユースケースを通してDesktop Agent Loopの実用性を検証。
+
+```
+自然言語の指示
+    ↓
+Claude Planner (desktop.claude_planner.ClaudePlanner)
+    ↓
+Human Approval
+    ↓
+desktop.executor.DesktopExecutor.browser_search(query)
+  Ctrl+L → 検索URL(DuckDuckGo) を type_text → Enter
+    ↓
+wait（ページ読み込み待ち）
+    ↓
+desktop.executor.DesktopExecutor.vision_read(instruction)
+  最新スクリーンショットを撮影
+    ↓
+desktop.vision.VisionReader
+  claude -p + prompts/vision-prompt.md + スクリーンショットパス
+    ↓
+{"status": "completed", "first_result_title": "...",
+ "confidence": "...", "reason": "..."}
+```
+
+- `browser_search` / `vision_read` はいずれも `desktop.policy` のホワイトリストに追加され、`desktop.executor.execute_action` の分岐にディスパッチされる、既存の他アクションと同じ実行パイプラインに乗っている
+- 実機で「AWS Lambda MicroVM」をDuckDuckGoで検索し、1件目の検索結果タイトルを正しくJSONで取得できることを確認済み
+- 開発中に `desktop/executor.py` の `SHIFTED_CHARACTERS` テーブルのバグ（`"="` の入力が `Shift+"-"` 扱いになり `"_"` が入力されてしまう）を発見・修正。STEP12〜15の全executor.pyに反映
+
+---
+
+# Persistent Workspace (Planned)
+
+STEP16
 
 ```
 GitHub
@@ -544,7 +605,7 @@ Workspace を再利用可能にする。
 
 # Multi Agent (Planned)
 
-STEP15
+STEP17
 
 ```
 Agent A
@@ -595,7 +656,9 @@ step9.env
 
 step12.env
 
-step13.env
+step14.env
+
+step15.env
 ```
 
 ---
@@ -687,6 +750,14 @@ Desktop Agent Loop
 
 ↓
 
+Desktop Orchestrator
+
+↓
+
+Browser Search Agent
+
+↓
+
 Workspace
 
 ↓
@@ -713,13 +784,16 @@ Multi Agent
 - Desktop Tools（observer/controller/planner/toolsパッケージ化）
 - Desktop Executor（python-xlibによる実操作）
 - Desktop Agent Loop（Observe→Plan→Approve→Execute）
+- Desktop Orchestrator（request/approve/execute/status CLI）
+- Browser Search Agent（browser_search + vision_read。実機で検索→結果読み取りを確認済み）
 
 開発中
 
-- （なし。次はSTEP14 Persistent Workspaceに着手予定）
+- （なし。次はSTEP16 Persistent Workspaceに着手予定）
 
 予定
 
+- `vision_read` のJSONスキーマ汎用化
 - 承認なしの自律実行モード
 - 日本語等マルチバイト文字入力対応
 - Persistent Workspace

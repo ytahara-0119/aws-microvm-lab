@@ -20,6 +20,7 @@ AWS Lambda MicroVM を利用して、ブラウザからアクセスできる Lin
 - 🔍 Desktop 状態観測（ウィンドウ一覧・解像度・スクリーンショット）
 - 🖱 python-xlib(XTest) による実際のマウス・キーボード操作
 - 🧠 Claude Code が Desktop状態から操作プランを生成し、人間承認を経て実行するAgentループ
+- 🔎 `browser_search` + `vision_read` で「検索して結果を読む」をAIが完結できる
 - 🔀 共通起動スクリプト
 - 🌏 日本語ロケール・タイムゾーン対応
 
@@ -123,6 +124,28 @@ policy検証（許可アクションのみ・危険操作をブロック）
 
 ---
 
+## Browser Search Agent
+
+```
+自然言語の指示
+    ↓
+Claude Planner
+    ↓
+Human Approval
+    ↓
+browser_search（アドレスバーに直接URLを入力して検索）
+    ↓
+検索結果をスクリーンショット
+    ↓
+vision_read（Claude Visionが画像を読む）
+    ↓
+最初の検索結果タイトルをJSONで返す
+```
+
+`python3 -m desktop.orchestrator request '...'` の1コマンドから、実際にDuckDuckGoで検索して1件目の検索結果タイトルをJSONで取得するところまで動作確認済みです。
+
+---
+
 # Project Structure
 
 ```
@@ -154,7 +177,9 @@ aws-microvm-lab/
 ├── step10-desktop-agent/         # Desktop観測 + 操作インターフェース定義
 ├── step11-desktop-tools/         # desktop パッケージ化
 ├── step12-desktop-executor/      # python-xlibによる実操作
-└── step13-desktop-agent-loop/    # Observe→Plan→Approve→Execute ループ
+├── step13-desktop-agent-loop/    # Observe→Plan→Approve→Execute ループ
+├── step14-desktop-orchestrator/  # request/approve/execute/status CLI
+└── step15-browser-search-agent/  # browser_search + vision_read
 ```
 ---
 
@@ -175,8 +200,10 @@ aws-microvm-lab/
 | STEP11 | Desktop Tools（パッケージ化） | ✅ |
 | STEP12 | Desktop Executor（python-xlibで実操作） | ✅ |
 | STEP13 | Desktop Agent Loop（Observe→Plan→Approve→Execute） | ✅ |
-| STEP14 | Persistent Workspace | ⏳ |
-| STEP15 | Multi Agent | ⏳ |
+| STEP14 | Desktop Orchestrator（request/approve/execute/status CLI） | ✅ |
+| STEP15 | Browser Search Agent（browser_search + vision_read） | ✅ |
+| STEP16 | Persistent Workspace | ⏳ |
+| STEP17 | Multi Agent | ⏳ |
 
 詳細は **docs/ROADMAP.md** を参照してください。
 
@@ -234,32 +261,36 @@ Terminal / GUI は STEP6 と同様に利用可能です。
 
 ---
 
-## STEP13 Desktop Agent Loop
+## STEP15 Browser Search Agent
 
 ```bash
-./scripts/run.sh step13
+./scripts/run.sh step15
 ```
 
-MicroVM 内で以下を実行すると、Claude Codeが提案したDesktop操作を確認・承認・実行できます。
+MicroVM 内で以下を実行すると、自然言語の指示1つからWeb検索→結果読み取りまでをAIが行います。
 
 ```bash
 cd /root/workspace
 
-# 現在のDesktopを観測
-python3 -m desktop.agent observe
+# 指示を渡してobserve→planを実行
+python3 -m desktop.orchestrator request \
+  'Search the web for "AWS Lambda MicroVM", wait until the page loads, read the title of the first search result, and return it as JSON.'
 
-# Claude Codeにプランを作らせる
-python3 -m desktop.agent plan "Firefoxで検索ボックスをクリックする"
-
-# 内容を確認
+# 内容を確認して承認
 python3 -m desktop.agent show-plan
+python3 -m desktop.orchestrator approve
 
-# 承認して実行
-python3 -m desktop.agent approve
-python3 -m desktop.agent execute
+# 実行
+python3 -m desktop.orchestrator execute
 
-# 結果確認
+# 結果確認（vision_readのJSON結果を含む）
 python3 -m desktop.agent show-result
+```
+
+より基本的なDesktop Agent Loopの単体確認（observe/plan/approve/execute）をしたい場合は STEP13/STEP14 でも同様に動作します。
+
+```bash
+./scripts/run.sh step13
 ```
 
 ---
@@ -288,13 +319,18 @@ ttyd    noVNC  code-server      (future)
 Terminal   Firefox      Playwright     Claude Code
                                             │
                                             ▼
+                                   Desktop Orchestrator
+                              (request/approve/execute/status)
+                                            │
+                                            ▼
                                     Desktop Agent Loop
                                observe → plan(Claude) →
                                policy → approve → execute
                                             │
                                             ▼
                                      Desktop Executor
-                                  (python-xlib + XTest)
+                          (python-xlib + XTest: move/click/type/
+                           keypress/browser_search/vision_read)
 ```
 
 詳細は **docs/ARCHITECTURE.md** を参照してください。
@@ -372,6 +408,8 @@ docs/TROUBLESHOOTING.md
 
 今後追加予定
 
+- `vision_read` のJSONスキーマ汎用化
+- Google等、DuckDuckGo以外の検索エンジン対応
 - 承認なしの自律実行モード
 - 日本語等マルチバイト文字入力への対応
 - ポリシー（安全ルール）の拡充
